@@ -9,11 +9,16 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import os
+import dj_database_url
+from dotenv import load_dotenv
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# .env dosyasını projenin kök dizininden (manage.py ile aynı seviye) yükle
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -30,10 +35,27 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+INSTALLED_APPS = [
+    # Django yerleşik uygulamaları
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 
+    # Üçüncü taraf
+    "rest_framework",        # pip install djangorestframework
+    "django_filters",        # pip install django-filter
+    "corsheaders",           # pip install django-cors-headers
+
+    # Kendi uygulamalarımız
+    "core",
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',          # CORS — CommonMiddleware'den ÖNCE olmalı
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -66,10 +88,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 
@@ -110,23 +133,22 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 
+# ---------------------------------------------------------------------------
+# CORS ayarları (Frontend erişimi için)
+# ---------------------------------------------------------------------------
+# Geliştirme ortamında tüm origin'lere izin ver
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Yalnızca DEBUG=True iken tümüne açık
 
-INSTALLED_APPS = [
-    # Django yerleşik uygulamaları (değiştirme)
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
+# Production'da aşağıdaki listeyi kullanın (CORS_ALLOW_ALL_ORIGINS = False yapın):
+# CORS_ALLOWED_ORIGINS = [
+#     "https://sizin-frontend-domaininiz.com",
+#     "http://localhost:3000",
+#     "http://localhost:5173",
+# ]
 
-    # Üçüncü taraf
-    "rest_framework",    # pip install djangorestframework
-    "django_filters",    # pip install django-filter
+# Credential (cookie, auth header) gönderimini destekle
+CORS_ALLOW_CREDENTIALS = True
 
-    # Kendi uygulamalarımız
-    "core",
-]
 
 # ---------------------------------------------------------------------------
 # DRF genel ayarları
@@ -169,11 +191,8 @@ REST_FRAMEWORK = {
 # ---------------------------------------------------------------------------
 # Medya dosyaları (profil fotoğrafları için)
 # ---------------------------------------------------------------------------
-import os
 MEDIA_URL  = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-
-
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

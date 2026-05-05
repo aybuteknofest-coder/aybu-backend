@@ -1,4 +1,31 @@
-venv/
-.env
-*.sqlite3
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Sanal ortam
+venv/
+.venv/
+
+# Ortam değişkenleri (GİZLİ BİLGİLER)
+.env
+
+# Veritabanı
+*.sqlite3
+db.sqlite3
+
+# Medya dosyaları (geliştirme ortamı)
+media/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

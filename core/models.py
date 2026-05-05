@@ -339,3 +339,97 @@ class Announcement(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+
+# =============================================================================
+# ÜYELİK BAŞVURUSU
+# Web sitesi üzerinden yapılan kulüp üyelik başvurularını saklar.
+# =============================================================================
+
+class UyeBasvurusu(TimeStampedModel):
+    """
+    Kulüp üyelik başvurularını temsil eden model.
+    Web sitesi üzerinden yapılan başvurular burada saklanır.
+    Yönetim kurulu tarafından onay/red işlemi yapılır.
+    """
+
+    class DurumChoices(models.TextChoices):
+        BEKLEMEDE  = "beklemede",  "Beklemede"
+        ONAYLANDI  = "onaylandi",  "Onaylandı"
+        REDDEDILDI = "reddedildi", "Reddedildi"
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    full_name = models.CharField(max_length=150, verbose_name="Ad Soyad")
+    email = models.EmailField(verbose_name="E-posta Adresi")
+    phone = models.CharField(
+        max_length=20, blank=True,
+        verbose_name="Telefon Numarası"
+    )
+    student_number = models.CharField(
+        max_length=20,
+        verbose_name="Öğrenci Numarası"
+    )
+    department = models.CharField(
+        max_length=150,
+        verbose_name="Bölüm",
+        help_text="Başvuranın üniversitedeki bölümü."
+    )
+    motivation = models.TextField(
+        blank=True,
+        verbose_name="Motivasyon Yazısı",
+        help_text="Neden bu kulübe katılmak istiyorsunuz?"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=DurumChoices.choices,
+        default=DurumChoices.BEKLEMEDE,
+        verbose_name="Başvuru Durumu"
+    )
+
+    class Meta:
+        verbose_name        = "Üyelik Başvurusu"
+        verbose_name_plural = "Üyelik Başvuruları"
+        ordering            = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.full_name} — {self.get_status_display()}"
+
+
+# =============================================================================
+# İLETİŞİM MESAJI
+# Web sitesindeki iletişim formundan gelen mesajları saklar.
+# =============================================================================
+
+class IletisimMesaji(TimeStampedModel):
+    """
+    İletişim formundan gelen mesajları temsil eden model.
+    Ziyaretçiler giriş yapmadan mesaj gönderebilir.
+    is_read alanı yönetim panelinde okundu/okunmadı takibi için kullanılır.
+    """
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    full_name = models.CharField(max_length=150, verbose_name="Ad Soyad")
+    email = models.EmailField(verbose_name="E-posta Adresi")
+    subject = models.CharField(max_length=255, verbose_name="Konu")
+    message = models.TextField(verbose_name="Mesaj İçeriği")
+    is_read = models.BooleanField(
+        default=False,
+        verbose_name="Okundu mu?",
+        help_text="Yönetici tarafından okunup okunmadığını gösterir."
+    )
+
+    class Meta:
+        verbose_name        = "İletişim Mesajı"
+        verbose_name_plural = "İletişim Mesajları"
+        ordering            = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.subject} — {self.full_name}"
