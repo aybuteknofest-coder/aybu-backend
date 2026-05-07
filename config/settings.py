@@ -14,6 +14,7 @@ import dj_database_url
 from dotenv import load_dotenv
 from pathlib import Path
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -51,6 +52,9 @@ INSTALLED_APPS = [
 
     # Kendi uygulamalarımız
     "core",
+
+    #Cloudflare r2
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -196,3 +200,13 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- CLOUDFLARE R2 DEPOLAMA AYARLARI ---
+AWS_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME')
+AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+AWS_S3_REGION_NAME = 'auto'
+
+# Django'ya "Dosyaları artık R2'ye fırlat" diyoruz
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
