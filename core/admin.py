@@ -227,7 +227,8 @@ class AnnouncementAdmin(admin.ModelAdmin):
     Duyuru yönetim paneli.
     list_editable: liste görünümünden doğrudan düzenleme sağlar.
     """
-    list_display    = ("title", "priority", "is_active", "author", "created_at")
+    # Vitrin listesine 'event_date' de ekledik ki dışarıdan bakınca tarihi görebilesin
+    list_display    = ("title", "priority", "is_active", "event_date", "author", "created_at")
     list_filter     = ("priority", "is_active")
     list_editable   = ("is_active", "priority")  # Listeden hızlı düzenleme
     search_fields   = ("title", "content", "author__username")
@@ -237,7 +238,8 @@ class AnnouncementAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Temel Bilgiler", {
-            "fields": ("id", "title", "slug", "content", "author")
+            # YENİ ALANLAR BURAYA GELDİ: "location" ve "event_date"
+            "fields": ("id", "title", "slug", "content", "location", "event_date", "author")
         }),
         ("Yayın Ayarları", {
             "fields": ("priority", "is_active")

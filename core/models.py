@@ -284,6 +284,11 @@ class EventPhoto(TimeStampedModel):
 # Kulüp duyurularını öncelik seviyesine göre yönetir.
 # =============================================================================
 
+# =============================================================================
+# DUYURU
+# Kulüp duyurularını öncelik seviyesine göre yönetir.
+# =============================================================================
+
 class Announcement(TimeStampedModel):
     """
     Kulüp duyurularını temsil eden model.
@@ -302,9 +307,14 @@ class Announcement(TimeStampedModel):
         editable=False
     )
     title   = models.CharField(max_length=255, verbose_name="Başlık")
-    # Boş bırakılırsa save() metodunda başlıktan otomatik üretilir
     slug    = models.SlugField(max_length=255, unique=True, blank=True)
     content = models.TextField(verbose_name="İçerik")
+    
+    # --- VİTRİN (FRONTEND) İÇİN EKLENEN YENİ ALANLAR ---
+    location = models.CharField(max_length=255, verbose_name="Konum", blank=True, null=True)
+    event_date = models.DateTimeField(verbose_name="Etkinlik Tarihi ve Saati", blank=True, null=True)
+    # --------------------------------------------------
+
     priority = models.IntegerField(
         choices=PriorityChoices.choices,
         default=PriorityChoices.MEDIUM,

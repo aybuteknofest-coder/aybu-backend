@@ -192,6 +192,11 @@ class EventSerializer(serializers.ModelSerializer):
 # Announcement modeline ait tüm alanları serileştirir.
 # =============================================================================
 
+# =============================================================================
+# DUYURU SERİALİZER
+# Announcement modeline ait tüm alanları serileştirir.
+# =============================================================================
+
 class AnnouncementSerializer(serializers.ModelSerializer):
     """
     Announcement modeli için serializer.
@@ -213,6 +218,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         model  = Announcement
         fields = (
             "id", "title", "slug", "content",
+            "location", "event_date",  # <--- YENİ EKLENEN KELİMELER 
             "priority", "is_active",
             "author", "author_id",
             "created_at", "updated_at",
