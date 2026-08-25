@@ -7,6 +7,8 @@ from .models import (
     Event,
     EventPhoto,
     Announcement,
+    UyeBasvurusu,
+    IletisimMesaji,
 )
 
 
@@ -249,3 +251,68 @@ class AnnouncementAdmin(admin.ModelAdmin):
             "fields": ("created_at", "updated_at")
         }),
     )
+    # =============================================================================
+# ÜYELİK BAŞVURUSU
+# =============================================================================
+
+@admin.register(UyeBasvurusu)
+class UyeBasvurusuAdmin(admin.ModelAdmin):
+    """
+    Üyelik başvuruları yönetim paneli.
+    Yönetim kurulu başvuruları inceleyip durumlarını günceller.
+    """
+    list_display    = ("full_name", "email", "status", "created_at")
+    list_filter     = ("status",)
+    search_fields   = ("full_name", "email", "student_number")
+    readonly_fields = ("id", "created_at", "updated_at")
+    ordering        = ("-created_at",)
+
+    fieldsets = (
+        ("Başvuran Bilgileri", {
+            "fields": ("id", "full_name", "email", "phone",
+                       "student_number", "department")
+        }),
+        ("Motivasyon", {
+            "fields": ("motivation",)
+        }),
+        ("Durum", {
+            "fields": ("status",)
+        }),
+        ("Sistem Bilgileri", {
+            "classes": ("collapse",),
+            "fields": ("created_at", "updated_at")
+        }),
+    )
+
+
+# =============================================================================
+# İLETİŞİM MESAJI
+# =============================================================================
+
+@admin.register(IletisimMesaji)
+class IletisimMesajiAdmin(admin.ModelAdmin):
+    """
+    İletişim mesajları yönetim paneli.
+    Yönetici mesajları okuyup is_read alanını güncelleyebilir.
+    """
+    list_display    = ("full_name", "email", "subject", "is_read", "created_at")
+    list_filter     = ("is_read",)
+    list_editable   = ("is_read",)
+    search_fields   = ("full_name", "email", "subject")
+    readonly_fields = ("id", "created_at", "updated_at")
+    ordering        = ("-created_at",)
+
+    fieldsets = (
+        ("Gönderen Bilgileri", {
+            "fields": ("id", "full_name", "email")
+        }),
+        ("Mesaj İçeriği", {
+            "fields": ("subject", "message")
+        }),
+        ("Durum", {
+            "fields": ("is_read",)
+        }),
+        ("Sistem Bilgileri", {
+            "classes": ("collapse",),
+            "fields": ("created_at", "updated_at")
+        }),)
