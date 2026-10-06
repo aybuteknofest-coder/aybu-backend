@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -25,13 +27,37 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-h-!b_t36^f+&rmcb3vvc8(3y$5j1)5c6*c5w&syvwv-wiaxewl'
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Yerelde .env içinde DEBUG=True verilir; Render'da tanımlanmazsa False olur.
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+# SECURITY WARNING: keep the secret key used in production secret!
+# Render'da SECRET_KEY ortam değişkeni tanımlanmalı.
+# Rastgele yedek anahtar yalnızca DEBUG modunda kullanılır: production'da her
+# worker farklı anahtar üretirse oturum/CSRF doğrulamaları bozulur.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("SECRET_KEY ortam değişkeni tanımlanmalı.")
+    SECRET_KEY = get_random_secret_key()
+
+# Render'da ALLOWED_HOSTS="servis-adi.onrender.com" (virgülle birden fazla) verilir.
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+
+# Render bu değişkeni otomatik tanımlar (ör. servis-adi.onrender.com)
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Render HTTPS'i proxy'de sonlandırır; Django'nun isteği HTTPS olarak tanıması için gerekli
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Production'da çerezler yalnızca HTTPS üzerinden gönderilsin (yerelde HTTP için DEBUG'da kapalı)
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+# HTTPS üzerinden admin/oturum POST'ları için (ör. "https://servis-adi.onrender.com")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
 
 
 # Application definition
@@ -59,6 +85,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',     # Statik dosyaları sunar — SecurityMiddleware'den hemen sonra
     'corsheaders.middleware.CorsMiddleware',          # CORS — CommonMiddleware'den ÖNCE olmalı
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -134,21 +161,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'   # collectstatic çıktısı; WhiteNoise buradan sunar
 
 
 # ---------------------------------------------------------------------------
 # CORS ayarları (Frontend erişimi için)
 # ---------------------------------------------------------------------------
-# Geliştirme ortamında tüm origin'lere izin ver
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Yalnızca DEBUG=True iken tümüne açık
-
-# Production'da aşağıdaki listeyi kullanın (CORS_ALLOW_ALL_ORIGINS = False yapın):
-# CORS_ALLOWED_ORIGINS = [
-#     "https://sizin-frontend-domaininiz.com",
-#     "http://localhost:3000",
-#     "http://localhost:5173",
-# ]
+# Virgülle ayrılmış liste, ör: "https://frontend.com,http://localhost:5173"
+CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
 
 # Credential (cookie, auth header) gönderimini destekle
 CORS_ALLOW_CREDENTIALS = True
@@ -209,6 +230,10 @@ AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.eu.r2.cloudflaresto
 AWS_S3_REGION_NAME = 'auto'
 AWS_S3_SIGNATURE_VERSION = 's3v4'                # R2 için gerekli imza sürümü
 AWS_QUERYSTRING_AUTH = False                      # Dosya URL'lerinde imza parametresi olmasın
+# Dosya URL'leri için public domain — şema olmadan, ör: "pub-xxxx.r2.dev" veya "cdn.ornek.com".
+# django-storages URL'yi https://<domain>/<dosya> olarak üretir. Yükleme yine
+# AWS_S3_ENDPOINT_URL üzerinden yapılır; bu ayar yalnızca okuma URL'lerini etkiler.
+AWS_S3_CUSTOM_DOMAIN = os.environ.get('R2_CUSTOM_DOMAIN') or None
 
 # Django 6.0 için modern depolama ayarı (DEFAULT_FILE_STORAGE artık deprecated)
 STORAGES = {
@@ -216,6 +241,7 @@ STORAGES = {
         "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",  # Statik dosyalar yerel kalır
+        # Statik dosyalar yerel kalır; WhiteNoise sıkıştırır ve hash'li isimle önbelleğe uygun sunar
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
