@@ -241,6 +241,9 @@ class AnnouncementAdmin(admin.ModelAdmin):
         ("Temel Bilgiler", {
             "fields": ("id", "title", "slug", "content", "author")
         }),
+        ("Etkinlik Bilgisi", {
+            "fields": ("location", "event_date")
+        }),
         ("Yayın Ayarları", {
             "fields": ("priority", "is_active")
         }),

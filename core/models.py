@@ -305,6 +305,11 @@ class Announcement(TimeStampedModel):
     # Boş bırakılırsa save() metodunda başlıktan otomatik üretilir
     slug    = models.SlugField(max_length=255, unique=True, blank=True)
     content = models.TextField(verbose_name="İçerik")
+
+    # Frontend vitrini için: duyuru bir etkinliğe aitse yeri ve zamanı
+    location   = models.CharField(max_length=255, blank=True, null=True, verbose_name="Konum")
+    event_date = models.DateTimeField(blank=True, null=True, verbose_name="Etkinlik Tarihi ve Saati")
+
     priority = models.IntegerField(
         choices=PriorityChoices.choices,
         default=PriorityChoices.MEDIUM,

@@ -213,6 +213,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         model  = Announcement
         fields = (
             "id", "title", "slug", "content",
+            "location", "event_date",
             "priority", "is_active",
             "author", "author_id",
             "created_at", "updated_at",

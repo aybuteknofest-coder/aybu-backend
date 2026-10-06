@@ -1,6 +1,6 @@
 # Deployment Configuration Reference
 
-> Kaynak: `config/settings.py` (2026-10-06 itibarıyla, Render hazırlık değişiklikleri dahil — henüz push edilmedi).
+> Kaynak: `config/settings.py` — `busra` dalı, Render hazırlığı (`b2e7d02`) ve `origin/busra` merge'ü sonrası (2026-10-06).
 > Satır numaraları bu sürüme göredir. Bu belge değişkenlerin **adını, türünü ve formatını** tanımlar; gerçek değerler içermez.
 > Deploy adımları için bkz. [RENDER_DEPLOYMENT_CHECKLIST.md](RENDER_DEPLOYMENT_CHECKLIST.md).
 

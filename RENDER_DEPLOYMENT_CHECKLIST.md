@@ -1,16 +1,17 @@
 # Render.com Deployment Checklist — aybu-backend
 
 > Hazırlanma tarihi: 2026-10-06
-> Kapsam: `aybu-backend` deposu (commit `452f5fe`)
+> Son güncelleme: 2026-10-06 — `busra` dalı, Render hazırlığı (`b2e7d02`) + `origin/busra` merge'ü (`9e7e4b0`) sonrası
+> Satır numaraları güncel `config/settings.py`'ye göredir.
 
 ## 0. Proje Özeti (koddan tespit edilen)
 
 | Bileşen | Değer | Kaynak |
 |---|---|---|
 | Dil / Framework | Python 3.12 + **Django 6.0.5** + Django REST Framework 3.17.1 | `requirements.txt`, `__pycache__/*.cpython-312.pyc` |
-| Veritabanı | **PostgreSQL** (`psycopg2-binary`) — `DATABASE_URL` üzerinden `dj-database-url` ile | `config/settings.py:94-100` |
-| Dosya depolama | **Cloudflare R2** (S3 uyumlu, `django-storages` + `boto3`) | `config/settings.py:204-221` |
-| Kimlik doğrulama | DRF **Session + Basic Auth** (JWT **yok**, sadece yorum satırında önerilmiş) | `config/settings.py:162-166` |
+| Veritabanı | **PostgreSQL** (`psycopg2-binary`) — `DATABASE_URL` üzerinden `dj-database-url` ile | `config/settings.py:121-127` |
+| Dosya depolama | **Cloudflare R2** (S3 uyumlu, `django-storages` + `boto3`) | `config/settings.py:225-247` |
+| Kimlik doğrulama | DRF **Session + Basic Auth** (JWT **yok**, sadece yorum satırında önerilmiş) | `config/settings.py:183-188` |
 | WSGI giriş noktası | `config.wsgi:application` | `config/wsgi.py` |
 | API kökü | `/api/` (9 ViewSet), `/admin/`, `/api-auth/` | `config/urls.py`, `core/urls.py` |
 
@@ -22,39 +23,41 @@
 
 ## 1. Ortam Değişkenleri Envanteri
 
-### 1.1 Kodun şu an `os.getenv` ile okuduğu değişkenler
+### 1.1 Başlangıçta `os.getenv` ile okunan değişkenler (R2 + DB)
 
 | # | Değişken | Kategori | Kullanıldığı yer | Ne için | Durum |
 |---|---|---|---|---|---|
-| 1 | `DATABASE_URL` | Veritabanı | `config/settings.py:96` | PostgreSQL bağlantı string'i (`dj_database_url.config`) | ❗ **Zorunlu** — tanımsızsa Django `ImproperlyConfigured` hatası verir |
-| 2 | `R2_ACCESS_KEY_ID` | 3rd party (Cloudflare R2) | `config/settings.py:205` → `AWS_ACCESS_KEY_ID` | R2 API token Access Key | ❗ Zorunlu (medya yükleme) |
-| 3 | `R2_SECRET_ACCESS_KEY` | 3rd party (Cloudflare R2) — **secret** | `config/settings.py:206` → `AWS_SECRET_ACCESS_KEY` | R2 API token Secret | ❗ Zorunlu |
-| 4 | `R2_BUCKET_NAME` | 3rd party (Cloudflare R2) | `config/settings.py:207` → `AWS_STORAGE_BUCKET_NAME` | Medya dosyalarının yazılacağı bucket | ❗ Zorunlu |
-| 5 | `R2_ACCOUNT_ID` | 3rd party (Cloudflare R2) | `config/settings.py:208` → `AWS_S3_ENDPOINT_URL` | Endpoint: `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com` | ❗ Zorunlu — tanımsızsa endpoint `https://None.eu...` olur |
+| 1 | `DATABASE_URL` | Veritabanı | `config/settings.py:123` | PostgreSQL bağlantı string'i (`dj_database_url.config`) | ❗ **Zorunlu** — tanımsızsa ilk DB işleminde `ImproperlyConfigured` hatası verir |
+| 2 | `R2_ACCESS_KEY_ID` | 3rd party (Cloudflare R2) | `config/settings.py:226` → `AWS_ACCESS_KEY_ID` | R2 API token Access Key | ❗ Zorunlu (medya yükleme) |
+| 3 | `R2_SECRET_ACCESS_KEY` | 3rd party (Cloudflare R2) — **secret** | `config/settings.py:227` → `AWS_SECRET_ACCESS_KEY` | R2 API token Secret | ❗ Zorunlu |
+| 4 | `R2_BUCKET_NAME` | 3rd party (Cloudflare R2) | `config/settings.py:228` → `AWS_STORAGE_BUCKET_NAME` | Medya dosyalarının yazılacağı bucket | ❗ Zorunlu |
+| 5 | `R2_ACCOUNT_ID` | 3rd party (Cloudflare R2) | `config/settings.py:229` → `AWS_S3_ENDPOINT_URL` | Endpoint: `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com` | ❗ Zorunlu — tanımsızsa endpoint `https://None.eu...` olur |
 
-### 1.2 Hardcoded olan ve env'e taşınması GEREKEN değerler
+### 1.2 Başlangıçta hardcoded olan değerler — ✅ hepsi env'e taşındı
 
-| # | Ayar | Dosya:Satır | Mevcut değer | Sorun | Önerilen env değişkeni |
+> Bu tablo **ilk incelemedeki (eski) durumu** gösterir; "Eski değer" sütunu artık kodda yok. Güncel karşılıkları "Şimdi" sütunundadır. Tüm değişkenlerin ayrıntısı: [DEPLOYMENT_CONFIG_REFERENCE.md](DEPLOYMENT_CONFIG_REFERENCE.md).
+
+| # | Ayar | Eski satır | Eski değer | Sorun (çözüldü) | Şimdi |
 |---|---|---|---|---|---|
-| 6 | `SECRET_KEY` | `config/settings.py:29` | `'django-insecure-…'` (açık metin) | 🔴 **Güvenlik:** Git geçmişinde ve GitHub'da (`aybuteknofest-coder/aybu-backend`) duruyor → **ele geçirilmiş kabul edilmeli**. Session/CSRF imzaları bununla yapılır. | `SECRET_KEY` (yeni, rastgele üretilmiş) |
-| 7 | `DEBUG` | `config/settings.py:32` | `True` | 🔴 Production'da stack trace sızdırır; ayrıca CORS'u herkese açar (bkz. #9) | `DEBUG=False` |
-| 8 | `ALLOWED_HOSTS` | `config/settings.py:34` | `[]` | 🔴 `DEBUG=False` iken boş liste → **her istek 400 Bad Request** | `ALLOWED_HOSTS` (+ Render'ın otomatik verdiği `RENDER_EXTERNAL_HOSTNAME`) |
-| 9 | `CORS_ALLOW_ALL_ORIGINS` / `CORS_ALLOWED_ORIGINS` | `config/settings.py:144-151` | `= DEBUG`; allow-list yorum satırında | 🟠 `DEBUG=False` olunca frontend'in hiçbir origin'i izinli olmaz → tarayıcıda CORS hatası | `CORS_ALLOWED_ORIGINS` (virgülle ayrılmış) |
-| 10 | `CSRF_TRUSTED_ORIGINS` | *(tanımlı değil)* | — | 🟠 HTTPS üzerinden admin paneli / session-auth POST'ları için gerekli | `CSRF_TRUSTED_ORIGINS` |
-| 11 | R2 bölge (jurisdiction) | `config/settings.py:208` | `.eu.` sabit | 🟡 Bucket EU jurisdiction'da değilse bağlantı başarısız olur. Commit `c40655c` EU için düzeltilmiş — doğrulanmalı | (opsiyonel) `R2_ENDPOINT_URL` |
-| 12 | R2 public domain | *(tanımlı değil)* | — | 🟠 `AWS_QUERYSTRING_AUTH=False` + `AWS_S3_CUSTOM_DOMAIN` yok → dosya URL'leri `https://<acc>.eu.r2.cloudflarestorage.com/<bucket>/...` olur; bu S3 API endpoint'i **herkese açık okunamaz**, frontend'de görseller açılmaz | `R2_CUSTOM_DOMAIN` (ör. `pub-xxxx.r2.dev` veya özel domain) → `AWS_S3_CUSTOM_DOMAIN` |
+| 6 | `SECRET_KEY` | `:29` |`'django-insecure-…'` (açık metin) | 🔴 **Güvenlik:** Git geçmişinde ve GitHub'da (`aybuteknofest-coder/aybu-backend`) duruyor → **ele geçirilmiş kabul edilmeli**. Session/CSRF imzaları bununla yapılır. | ✅ `SECRET_KEY` env (`:38`) — eski anahtarı **kullanmayın** |
+| 7 | `DEBUG` | `:32` |`True` | 🔴 Production'da stack trace sızdırır; ayrıca CORS'u herkese açar (bkz. #9) | ✅ `DEBUG` env, varsayılan `False` (`:32`) |
+| 8 | `ALLOWED_HOSTS` | `:34` |`[]` | 🔴 `DEBUG=False` iken boş liste → **her istek 400 Bad Request** | ✅ `ALLOWED_HOSTS` env + `RENDER_EXTERNAL_HOSTNAME` (`:45-50`) |
+| 9 | `CORS_ALLOW_ALL_ORIGINS` / `CORS_ALLOWED_ORIGINS` | `:144-151` |`= DEBUG`; allow-list yorum satırında | 🟠 `DEBUG=False` olunca frontend'in hiçbir origin'i izinli olmaz → tarayıcıda CORS hatası | ✅ `CORS_ALLOWED_ORIGINS` env (`:172`) |
+| 10 | `CSRF_TRUSTED_ORIGINS` | — |— | 🟠 HTTPS üzerinden admin paneli / session-auth POST'ları için gerekli | ✅ `CSRF_TRUSTED_ORIGINS` env (`:60`) |
+| 11 | R2 bölge (jurisdiction) | `:208` |`.eu.` sabit | 🟡 Bucket EU jurisdiction'da değilse bağlantı başarısız olur. Commit `c40655c` EU için düzeltilmiş — doğrulanmalı | ⚠️ Değişmedi (`:229`) — bucket'ın EU'da olduğu doğrulanmalı |
+| 12 | R2 public domain | — |— | 🟠 `AWS_QUERYSTRING_AUTH=False` + `AWS_S3_CUSTOM_DOMAIN` yok → dosya URL'leri `https://<acc>.eu.r2.cloudflarestorage.com/<bucket>/...` olur; bu S3 API endpoint'i **herkese açık okunamaz**, frontend'de görseller açılmaz | ✅ `R2_CUSTOM_DOMAIN` env (`:236`) — bucket public erişimi **manuel** açılmalı |
 
 ### 1.3 Diğer sabit değerler (env gerektirmez, bilgi amaçlı)
 
 | Ayar | Satır | Değer | Not |
 |---|---|---|---|
-| `AWS_S3_REGION_NAME` | 209 | `'auto'` | R2 için doğru |
-| `AWS_S3_SIGNATURE_VERSION` | 210 | `'s3v4'` | R2 için gerekli |
-| `AWS_QUERYSTRING_AUTH` | 211 | `False` | İmzasız URL → bucket public olmalı (bkz. #12) |
-| `STATIC_URL` | 137 | `'static/'` | `STATIC_ROOT` **tanımlı değil** → `collectstatic` başarısız olur (bkz. §3.2) |
-| `MEDIA_URL` / `MEDIA_ROOT` | 198-199 | `/media/`, `BASE_DIR/media` | Medya R2'de olduğu için Render'da kullanılmaz |
-| `TIME_ZONE` | 127 | `'UTC'` | İsteğe göre `Europe/Istanbul` |
-| `REST_FRAMEWORK.DEFAULT_RENDERER_CLASSES` | 174-178 | Browsable API açık | Production'da kapatılması önerilir |
+| `AWS_S3_REGION_NAME` | 230 | `'auto'` | R2 için doğru |
+| `AWS_S3_SIGNATURE_VERSION` | 231 | `'s3v4'` | R2 için gerekli |
+| `AWS_QUERYSTRING_AUTH` | 232 | `False` | İmzasız URL → bucket public olmalı ve `R2_CUSTOM_DOMAIN` tanımlı olmalı (bkz. #12) |
+| `STATIC_URL` / `STATIC_ROOT` | 164-165 | `'/static/'`, `BASE_DIR/staticfiles` | WhiteNoise sunar; build'de `collectstatic` çalışmalı |
+| `MEDIA_URL` / `MEDIA_ROOT` | 219-220 | `/media/`, `BASE_DIR/media` | Medya R2'de olduğu için Render'da kullanılmaz |
+| `TIME_ZONE` | 154 | `'UTC'` | İsteğe göre `Europe/Istanbul` |
+| `REST_FRAMEWORK.DEFAULT_RENDERER_CLASSES` | 195-199 | Browsable API açık | Production'da kapatılması önerilir |
 
 ### 1.4 Bulunmayanlar (tarama sonucu)
 
@@ -67,7 +70,7 @@
 
 ## 2. Veritabanı Bağlantı Bilgileri
 
-**Konum:** `config/settings.py:94-100`
+**Konum:** `config/settings.py:121-127`
 
 ```python
 DATABASES = {
@@ -145,18 +148,25 @@ WEB_CONCURRENCY=2
 | `ALLOWED_HOSTS` | Servise erişilecek host adları | ✅ settings.py | ⬜ MISSING | Hayır |
 | `CORS_ALLOWED_ORIGINS` | Frontend origin(ler)i | ✅ settings.py | ⬜ MISSING — frontend domain bilinmiyor | Hayır |
 | `CSRF_TRUSTED_ORIGINS` | HTTPS POST için güvenilir origin'ler | ✅ settings.py | ⬜ MISSING | Hayır |
-| `DATABASE_URL` | PostgreSQL bağlantı string'i | ✅ `settings.py:96` | ⬜ Render DB oluşturulunca | **Evet** |
-| `R2_ACCOUNT_ID` | R2 endpoint'i için Cloudflare hesap ID | ✅ `settings.py:208` | ⬜ Yerel `.env`'den alınmalı | Hayır (ama gizli tutun) |
-| `R2_ACCESS_KEY_ID` | R2 API token access key | ✅ `settings.py:205` | ⬜ Yerel `.env`'den alınmalı | **Evet** |
-| `R2_SECRET_ACCESS_KEY` | R2 API token secret | ✅ `settings.py:206` | ⬜ Yerel `.env`'den alınmalı | **Evet** |
-| `R2_BUCKET_NAME` | Medya bucket adı | ✅ `settings.py:207` | ⬜ Yerel `.env`'den alınmalı | Hayır |
+| `DATABASE_URL` | PostgreSQL bağlantı string'i | ✅ `settings.py:123` | ⬜ Render DB oluşturulunca | **Evet** |
+| `R2_ACCOUNT_ID` | R2 endpoint'i için Cloudflare hesap ID | ✅ `settings.py:229` | ⬜ Yerel `.env`'den alınmalı | Hayır (ama gizli tutun) |
+| `R2_ACCESS_KEY_ID` | R2 API token access key | ✅ `settings.py:226` | ⬜ Yerel `.env`'den alınmalı | **Evet** |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret | ✅ `settings.py:227` | ⬜ Yerel `.env`'den alınmalı | **Evet** |
+| `R2_BUCKET_NAME` | Medya bucket adı | ✅ `settings.py:228` | ⬜ Yerel `.env`'den alınmalı | Hayır |
 | `R2_CUSTOM_DOMAIN` | Görsellerin public URL domain'i | ✅ settings.py | ⬜ MISSING — R2'de public erişim açılmalı | Hayır |
 | `WEB_CONCURRENCY` | Gunicorn worker sayısı | Gunicorn okur | ⬜ Opsiyonel | Hayır |
 | `RENDER_EXTERNAL_HOSTNAME` | **Render otomatik ekler**, elle eklemeyin | ✅ `ALLOWED_HOSTS`a otomatik eklenir | — | Hayır |
 
 **Lejant:** ✅ mevcut · ❌ eksik · ⬜ doldurulmadı / doğrulanmadı · ❓ bilinmiyor
 
-### 3.2 Deploy öncesi kod değişiklikleri — ✅ uygulandı (2026-10-06, henüz push edilmedi)
+### 3.2 Deploy öncesi kod değişiklikleri — ✅ uygulandı
+
+Render hazırlığı commit `b2e7d02`'de; merge düzeltmeleri `busra` dalındaki merge commit'inde.
+
+- [x] 🔴 **Migration çakışması giderildi:** merge ile iki ayrı `0003` geldi (`0003_iletisimmesaji_uyebasvurusu` ve `0003_iletisimmesaji_uyebasvurusu_announcement_event_date_and_more`) → `migrate` *"Conflicting migrations detected"* ile duruyordu ve Render build'i kırılırdı. Aynı tabloları oluşturan kopya silindi; yalnızca yeni alanları (`Announcement.location`, `Announcement.event_date`) ekleyen `0004_announcement_location_event_date` oluşturuldu.
+  - Kopya `0003`'ü yerel DB'sine **uygulamış** ekip üyeleri bir kez `python manage.py migrate core 0004 --fake` çalıştırmalı (tablolar ve alanlar zaten var).
+- [x] Admin: `AnnouncementAdmin`'e "Etkinlik Bilgisi" bölümü (`location`, `event_date`) eklendi
+- [x] Merge kalıntıları temizlendi (`models.py` sonundaki fazla import, tekrarlanan yorum başlıkları)
 
 - [x] `SECRET_KEY` env'den okunuyor; `DEBUG=False` iken tanımsızsa uygulama **başlamaz** (`ImproperlyConfigured`). Rastgele yedek anahtar yalnızca `DEBUG=True`'da kullanılır.
 - [x] `DEBUG = os.environ.get('DEBUG', 'False') == 'True'`
@@ -198,7 +208,14 @@ R2_CUSTOM_DOMAIN=pub-xxxx.r2.dev
 | Health check path | `/api/` |
 | Region | Postgres ile **aynı bölge** (Internal URL için şart) — R2 EU olduğundan **Frankfurt** önerilir |
 
-### 3.4 Deploy sonrası doğrulama
+### 3.4 Deploy öncesi / sonrası doğrulama
+
+Push öncesi (yerelde):
+- [ ] `python manage.py makemigrations --check --dry-run` → `No changes detected`
+- [ ] `python manage.py migrate` boş bir DB'de hatasız tamamlanıyor
+- [ ] `python manage.py check` → `no issues`
+
+Deploy sonrası:
 
 - [ ] `https://<servis>.onrender.com/api/` → 200 ve JSON döner
 - [ ] `https://<servis>.onrender.com/admin/` → CSS ile yüklenir
@@ -206,6 +223,7 @@ R2_CUSTOM_DOMAIN=pub-xxxx.r2.dev
 - [ ] Admin'den bir görsel yüklendi → R2 bucket'ında göründü
 - [ ] Görselin API'deki URL'si tarayıcıda açılıyor (public domain doğru)
 - [ ] Frontend'den `GET /api/events/` CORS hatası olmadan çalışıyor
+- [ ] `GET /api/announcements/` yanıtında `location` ve `event_date` alanları var
 - [ ] Frontend'den `POST /api/uye-basvurulari/` ve `POST /api/iletisim-mesajlari/` (AllowAny) çalışıyor
 - [ ] Hata sayfasında stack trace **görünmüyor** (`DEBUG=False` doğrulaması)
 
